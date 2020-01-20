@@ -1,0 +1,49 @@
+import React, { useState, Fragment } from "react";
+import Card from "../../shared/components/UIElements/Card";
+import Button from "../../shared/components/FormElements/Button";
+import Modal from "../../shared/components/UIElements/Modal";
+import "./PlactItem.css";
+const PlactItem = props => {
+  const [showMap, setShowMap] = useState(false);
+
+  const openMapHandler = () => {
+    setShowMap(true);
+  };
+  const closeMapHandler = () => {
+    setShowMap(false);
+  };
+  return (
+    <Fragment>
+      <Modal
+        show={showMap}
+        onCancel={closeMapHandler}
+        header={props.address}
+        contentClass="place-item__modal-content"
+        footerClass="place-item__modal-actions"
+        footer={<Button onClick={closeMapHandler}>CLOSE</Button>}
+      >
+        <div className="map-container">{props.description}</div>
+      </Modal>
+      <li className="place-item">
+        <Card className="place-item__content">
+          <div className="plact-item__image">
+            <img src={props.image} alt={props.title} />
+          </div>
+          <div className="place-item__info">
+            <h2>{props.title}</h2>
+            <h3>{props.address}</h3>
+          </div>
+          <div className="place-item__actions">
+            <Button inverse onClick={openMapHandler}>
+              MORE
+            </Button>
+            <Button to={`/places/${props.id}`}>EDIT</Button>
+            <Button danger>DELETE</Button>
+          </div>
+        </Card>
+      </li>
+    </Fragment>
+  );
+};
+
+export default PlactItem;
