@@ -1,5 +1,6 @@
 const uuid = require("uuid/v4");
-const DUMMY_PLACES = [
+const { validationResult } = require("express-validator");
+let DUMMY_PLACES = [
   {
     id: "p1",
     title: "Empire State Building",
@@ -27,21 +28,27 @@ const getPlaceByPlaceId = (req, res) => {
     place
   });
 };
-
-const getPlaceByUserId = (req, res, next) => {
+//One user can have many places visited list so we use filter as filter returns every items whereas find just return first matching items
+const getPlacesByUserId = (req, res, next) => {
   const userId = req.params.userId;
-  const userPlace = DUMMY_PLACES.find(p => p.creator === userId);
-  if (!userPlace) {
+  const userPlaces = DUMMY_PLACES.filter(p => p.creator === userId);
+  if (!userPlaces || userPlaces.length === 0) {
     const error = new Error("User Place not found");
     error.code = 404;
     return next(error);
   }
   res.json({
-    userPlace
+    userPlaces
   });
 };
 
 const createPlace = (req, res, next) => {
+  const errors = validationResult(req); //this func looks in req & see if there's any validation error & if there's then it returns errors
+  if (!errors.isEmpty()) {
+    console.log("Mistake", errors);
+    const errMsg = errors.array().map(error => error.msg);
+    return res.status(422).json({ errors: errMsg });
+  }
   const { title, description, address, creator, coordinates } = req.body;
   const createdPlace = {
     id: uuid(),
@@ -55,6 +62,36 @@ const createPlace = (req, res, next) => {
   res.status(201).json({ place: createdPlace });
 };
 
+const updatePlaceById = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    const errMsg = errors.array().map(error => error.msg);
+    return res.status(422).json({ errors: errMsg });
+  }
+  const { title, description, address } = req.body;
+  const placeId = req.params.placeId;
+  const matchPlace = { ...DUMMY_PLACES.find(place => place.id === placeId) };
+  const placeIndex = DUMMY_PLACES.findIndex(place => place.id === placeId);
+  matchPlace.title = title;
+  matchPlace.description = description;
+  matchPlace.address = address;
+  DUMMY_PLACES[placeIndex];
+  res.status(200).json({ place: matchPlace });
+};
+
+const deletePlaceById = (req, res, next) => {
+  const placeId = req.params.placeId;
+  if (DUMMY_PLACES.find(place => place.id !== placeId)) {
+    const error = new Error("User Place not found unable to delete");
+    error.code = 404;
+    return next(error);
+  }
+  DUMMY_PLACES = DUMMY_PLACES.filter(place => place.id !== placeId);
+  res.status(200).json({ message: "Place succesfully deleted" });
+};
+
 exports.getPlaceByPlaceId = getPlaceByPlaceId;
-exports.getPlaceByUserId = getPlaceByUserId;
+exports.getPlacesByUserId = getPlacesByUserId;
 exports.createPlace = createPlace;
+exports.updatePlaceById = updatePlaceById;
+exports.deletePlaceById = deletePlaceById;

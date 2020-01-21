@@ -21,6 +21,11 @@ app.use((error, req, res, next) => {
 //Routes
 app.use("/api/user", require("./routes/user-route"));
 app.use("/api/place", require("./routes/place-route"));
+app.use((req, res, next) => {
+  const error = new Error("Page Not Found");
+  error.code = 404;
+  return next(error);
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
