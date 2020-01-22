@@ -1,65 +1,65 @@
-const uuid = require("uuid/v4");
 const { validationResult } = require("express-validator");
-let DUMMY_PLACES = [
-  {
-    id: "p1",
-    title: "Empire State Building",
-    description: "One of the most famous sky scrappers in the world",
-    imageUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Empire_State_Building_%28aerial_view%29.jpg/800px-Empire_State_Building_%28aerial_view%29.jpg",
-    address: "20 W 34th St,New York,NY 10001",
-    location: {
-      lat: 40.7884405,
-      lng: -73.9878584
-    },
-    creator: "u1"
-  }
-];
+const HttpError = require("../models/http-error");
+//model
+const Place = require("../models/Place");
 
-const getPlaceByPlaceId = (req, res) => {
+const getPlaceByPlaceId = (req, res, next) => {
   const placeId = req.params.placeId;
-  const place = DUMMY_PLACES.find(p => p.id === placeId); //find return first matching items in the form of true & find doesn't create copy of array
-  if (!place) {
-    const error = new Error("Place not found");
-    error.code = 404;
-    throw error; //throw cancel func execution after that
-  }
-  res.json({
-    place
-  });
+  Place.findById(placeId)
+    .then(place => {
+      if (!place) {
+        return next(new HttpError("Place not found", 404));
+      }
+      res.json({ placeById: place.toObject({ getters: true }) });
+      //converting to normal js obj & removing _ from _id
+    })
+    .catch(err => {
+      console.log("catch", err);
+      return next(new HttpError("Something went wrong", 500));
+    });
 };
-//One user can have many places visited list so we use filter as filter returns every items whereas find just return first matching items
+
 const getPlacesByUserId = (req, res, next) => {
   const userId = req.params.userId;
-  const userPlaces = DUMMY_PLACES.filter(p => p.creator === userId);
-  if (!userPlaces || userPlaces.length === 0) {
-    const error = new Error("User Place not found");
-    error.code = 404;
-    return next(error);
-  }
-  res.json({
-    userPlaces
-  });
+  Place.find({ creator: userId }) //find return array
+    .then(userPlace => {
+      if (!userPlace || userPlace.length === 0) {
+        return next(new HttpError("User place not found", 404));
+      }
+      res.json({
+        userPlaces: userPlace.map(place => place.toObject({ getters: true }))
+      });
+    })
+    .catch(err => {
+      console.log("catch", err);
+      return next(new HttpError("Fethcing place went wrong", 500));
+    });
 };
 
 const createPlace = (req, res, next) => {
   const errors = validationResult(req); //this func looks in req & see if there's any validation error & if there's then it returns errors
   if (!errors.isEmpty()) {
-    console.log("Mistake", errors);
+    //console.log("Mistake", errors);
     const errMsg = errors.array().map(error => error.msg);
     return res.status(422).json({ errors: errMsg });
   }
-  const { title, description, address, creator, coordinates } = req.body;
-  const createdPlace = {
-    id: uuid(),
+  const { title, description, address, imageUrl, creator } = req.body;
+  const createdPlace = new Place({
+    //New instance of model
     title,
     description,
     address,
-    creator,
-    location: coordinates
-  };
-  DUMMY_PLACES.push(createdPlace);
-  res.status(201).json({ place: createdPlace });
+    imageUrl:
+      "https://www.nepalsocialtreks.com/wp-content/uploads/2019/08/Balthali-Village-Trek.jpg",
+    creator
+  });
+  createdPlace
+    .save() //before saving make new instance of model
+    .then(newPlace => res.status(201).json({ createdPlace: newPlace }))
+    .catch(err => {
+      clg("catch", err);
+      return next(new HttpError("Something went wrong", 500));
+    });
 };
 
 const updatePlaceById = (req, res, next) => {

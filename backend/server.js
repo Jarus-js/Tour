@@ -1,6 +1,6 @@
 const express = require("express");
 const bodyParser = require("body-parser");
-
+const mongoose = require("mongoose");
 //Storing express function in app var;
 const app = express();
 
@@ -27,7 +27,16 @@ app.use((req, res, next) => {
   return next(error);
 });
 
+//mongoose connection
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server started on port ${PORT}`);
-});
+mongoose
+  .connect(
+    "mongodb+srv://Jarus:Jarus1@cluster0-xizht.mongodb.net/tourPlaces?retryWrites=true&w=majority",
+    { useNewUrlParser: true, useUnifiedTopology: true }
+  )
+  .then(
+    app.listen(PORT, () => {
+      console.log(`Server started on port ${PORT}`);
+    })
+  )
+  .catch(err => console.log(err));
