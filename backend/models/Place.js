@@ -7,7 +7,8 @@ const placeSchema = new Schema({
   description: { type: String, required: true },
   imageUrl: { type: String },
   address: { type: String },
-  creator: { type: String, required: true }
+  creator: { type: Schema.Types.ObjectId, required: true, ref: "User" }
+  //euta place ko creator ekjana matra hunxa
 });
 
-module.exports = model("Place", placeSchema);//collection name i.e turns to places
+module.exports = model("Place", placeSchema); //should be singular & uppercase

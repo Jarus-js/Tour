@@ -1,7 +1,9 @@
 const { validationResult } = require("express-validator");
 const HttpError = require("../models/http-error");
+const mongoose = require("mongoose");
 //model
 const Place = require("../models/Place");
+const User = require("../models/User");
 
 const getPlaceByPlaceId = (req, res, next) => {
   const placeId = req.params.placeId;
@@ -45,7 +47,6 @@ const createPlace = (req, res, next) => {
   }
   const { title, description, address, imageUrl, creator } = req.body;
   const createdPlace = new Place({
-    //New instance of model
     title,
     description,
     address,
@@ -53,9 +54,24 @@ const createPlace = (req, res, next) => {
       "https://www.nepalsocialtreks.com/wp-content/uploads/2019/08/Balthali-Village-Trek.jpg",
     creator
   });
+  User.findById(creator) //we pass user id here
+    .then(user => {
+      console.log("first", user);
+      if (!user) {
+        return next(new HttpError("Couldnot find user id", 404));
+      }
+      user.places.push(createdPlace.id);
+      user.save().then(() => console.log("userId added to places"));
+      console.log("final", user);
+    });
   createdPlace
-    .save() //before saving make new instance of model
-    .then(newPlace => res.status(201).json({ createdPlace: newPlace }))
+    .save()
+    .then(places => {
+      console.log("saved place", places);
+      return res.json({
+        createdPlace: places.toObject({ getters: true })
+      });
+    })
     .catch(err => {
       clg("catch", err);
       return next(new HttpError("Something went wrong", 500));
@@ -70,24 +86,51 @@ const updatePlaceById = (req, res, next) => {
   }
   const { title, description, address } = req.body;
   const placeId = req.params.placeId;
-  const matchPlace = { ...DUMMY_PLACES.find(place => place.id === placeId) };
-  const placeIndex = DUMMY_PLACES.findIndex(place => place.id === placeId);
-  matchPlace.title = title;
-  matchPlace.description = description;
-  matchPlace.address = address;
-  DUMMY_PLACES[placeIndex];
-  res.status(200).json({ place: matchPlace });
+  Place.findById(placeId)
+    .then(place => {
+      place.title = title;
+      place.description = description;
+      place.address = address;
+      place.save().then(() => {
+        return res
+          .status(200)
+          .json({ updatePlace: place.toObject({ getters: true }) });
+      });
+    })
+    .catch(err => {
+      clg("catch", err);
+      return next(new HttpError("Something went wrong", 500));
+    });
 };
 
 const deletePlaceById = (req, res, next) => {
   const placeId = req.params.placeId;
-  if (DUMMY_PLACES.find(place => place.id !== placeId)) {
-    const error = new Error("User Place not found unable to delete");
-    error.code = 404;
-    return next(error);
-  }
-  DUMMY_PLACES = DUMMY_PLACES.filter(place => place.id !== placeId);
-  res.status(200).json({ message: "Place succesfully deleted" });
+  Place.findById(placeId)
+    .populate("creator")
+    .then(place => {
+      //console.log("populate-place", place);
+      if (!place) {
+        return next(new HttpError("Couldnot find place", 404));
+      }
+      place
+        .remove()
+        .then(() => {
+          res.status(200).json({ message: "Place succesfully deleted" });
+        })
+        .catch(err => {
+          return next(new HttpError("Couldnot delete place"));
+        });
+      console.log("before pull", place.creator.places);
+      place.creator.places.pull(place);
+      console.log("after pull", place.creator.places);
+      place.creator.save().then(() => {
+        return res.json({ message: "Removed from places array" });
+      });
+    })
+    .catch(err => {
+      console.log("catch", err);
+      return next(new HttpError("Something went wrong", 500));
+    });
 };
 
 exports.getPlaceByPlaceId = getPlaceByPlaceId;
@@ -95,3 +138,19 @@ exports.getPlacesByUserId = getPlacesByUserId;
 exports.createPlace = createPlace;
 exports.updatePlaceById = updatePlaceById;
 exports.deletePlaceById = deletePlaceById;
+
+/*
+ mongoose
+        .startSession()
+        .then(session => {
+          session.startTransaction();
+          createdPlace.save({ session }).then(() => {
+            console.log("inside", user);
+            console.log("createdplace", createdPlace);
+            user.places.push(createdPlace);
+          }); //user id to places
+          user.save({ session }).then(() => session.commitTransaction());
+          res.json({ place: createdPlace });
+        })
+     
+*/
