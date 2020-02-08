@@ -3,8 +3,16 @@ const { validationResult } = require("express-validator");
 const HttpError = require("../models/http-error");
 //models
 const User = require("../models/User");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
-const getAllUser = (req, res) => {
+//Generating jwtoken => identifying piece of info created including user id & secret
+const tokenForUser = user =>
+  jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_KEY, {
+    expiresIn: "7d"
+  });
+
+const getAllUser = (req, res, next) => {
   User.find({}, "-password")
     .then(users => {
       return res.json({
@@ -19,43 +27,60 @@ const getAllUser = (req, res) => {
 const userSignup = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    const errMsg = errors.array().map(error => error.msg);
-    return res.status(422).json({ errors: errMsg });
+    return next(new HttpError("Invalid input passed", 422));
   }
-  const { name, email, password, imageUrl } = req.body;
+  const { name, email, password } = req.body;
 
   User.findOne({ email }).then(userEmail => {
     if (userEmail) {
       return res.status(422).json({ message: "Email is in use" });
     }
-  });
-
-  const newUser = new User({
-    name,
-    email,
-    password,
-    places: [],
-    imageUrl:
-      "https://scontent.fktm8-1.fna.fbcdn.net/v/t1.0-9/78950153_1714169562052257_5290771419381104640_n.jpg?_nc_cat=105&_nc_ohc=52tvYcaabN0AQkJOk4Uhg5KYOx-NTZ50Yy_E3Hg6qL--jOz8OlZoX80HA&_nc_ht=scontent.fktm8-1.fna&oh=f0bc213fd9a700538d0490cef1b988e9&oe=5EA5ADFB"
-  });
-  newUser
-    .save()
-    .then(user =>
-      res.status(201).json({ newUser: user.toObject({ getters: true }) })
-    )
-    .catch(err => {
-      return next(new HttpError("Something went wrong", 500));
-    });
+    bcrypt
+      .hash(password, 12)
+      .then(hashedPassword => {
+        console.log("Req signup", req.file);
+        const newUser = new User({
+          name,
+          email,
+          password: hashedPassword,
+          image: req.file.path,
+          places: []
+        }); //new instance of user
+        newUser
+          .save()
+          .then(user => {
+            res.status(201).json({
+              userId: user.id,
+              email: user.email,
+              token: tokenForUser(user)
+            });
+          })
+          .catch(err => console.log(err));
+      })
+      .catch(err => console.log(err));
+  }); //findOne
 };
 
 const userLogin = (req, res, next) => {
   const { email, password } = req.body;
   User.findOne({ email })
     .then(user => {
-      if (!user || user.password !== password) {
-        return next(new HttpError("Invalid Credentials", 401)); //auth failed i.e 401
+      console.log("loginUser", user);
+      if (!user) {
+        return res
+          .status(401)
+          .json({ message: "Inavalid Credentials or User not found" }); //auth failed i.e 401
       }
-      res.json({ message: "Login Success" });
+      bcrypt
+        .compare(password, user.password)
+        .then(matchedPw => {
+          return res.json({
+            message: "Login Success",
+            user: user.toObject({ getters: true }),
+            token: tokenForUser(user)
+          });
+        })
+        .catch(err => console.log(err));
     })
     .catch(err => {
       console.log("mistake", err);

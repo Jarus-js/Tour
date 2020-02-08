@@ -3,8 +3,8 @@ import Card from "../../shared/components/UIElements/Card";
 import Button from "../../shared/components/FormElements/Button";
 import PlactItem from "./PlactItem";
 import "./PlaceList.css";
-const PlaceList = props => {
-  if (props.items.length === 0) {
+const PlaceList = ({ items, onDeletePlace }) => {
+  if (items.length === 0) {
     return (
       <div className="place-list center">
         <Card>
@@ -16,17 +16,18 @@ const PlaceList = props => {
   }
   return (
     <ul className="place-list">
-      {props.items.map(place => {
+      {items.map(place => {
         return (
           <PlactItem
             key={place.id}
             id={place.id}
-            image={place.imageUrl}
+            image={place.image}
             title={place.title}
             description={place.description}
             address={place.address}
             creatorId={place.creator}
             coordinates={place.location}
+            onDelete={onDeletePlace}
           />
         );
       })}

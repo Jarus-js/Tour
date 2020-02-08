@@ -1,5 +1,6 @@
-import React, { useEffect } from "react";
-import { useParams } from "react-router-dom";
+import React, { Fragment, useState, useEffect, useContext } from "react";
+import { useParams, useHistory } from "react-router-dom";
+import axios from "axios";
 import Input from "../../shared/components/FormElements/Input";
 import Button from "../../shared/components/FormElements/Button";
 import {
@@ -7,95 +8,131 @@ import {
   VALIDATOR_MINLENGTH
 } from "../../shared/components/utils/validators";
 import { useForm } from "../../shared/components/hooks/form-hook";
+import ErrorModal from "../../shared/components/UIElements/ErrorModal";
+import { AuthContext } from "../../shared/components/context/auth-Context";
 import "./PlaceForm.css";
-const DUMMY_PLACES = [
-  {
-    id: "p1",
-    title: "Empire State Building",
-    description: "One of the most famous sky scrappers in the world",
-    imageUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Empire_State_Building_%28aerial_view%29.jpg/800px-Empire_State_Building_%28aerial_view%29.jpg",
-    address: "20 W 34th St,New York,NY 10001",
-    location: {
-      lat: 40.7884405,
-      lng: -73.9878584
-    },
-    creator: "u1"
-  }
-];
 
 const UpdatePlace = () => {
+  const auth = useContext(AuthContext);
+  const [error, setError] = useState();
+  const [loadedPlace, setLoadedPlace] = useState();
   const placeId = useParams().placeId;
-
+  const history = useHistory();
   const [formState, inputHandler, setFormData] = useForm(
     {
       //inputs:inputData
       title: { value: "", isValid: false },
-      description: { value: "", isValid: false }
+      description: { value: "", isValid: false },
+      address: { value: "", isValid: false }
     },
     false //formIsValid:formValidity
   );
 
-  const identifiedPlaces = DUMMY_PLACES.find(places => places.id === placeId);
-
   useEffect(() => {
-    if (identifiedPlaces) {
-      setFormData(
-        {
-          title: { value: identifiedPlaces.title, isValid: true },
-          description: { value: identifiedPlaces.description, isValid: true }
-        },
-        true
-      );
-    }
-  }, [setFormData, identifiedPlaces]);
+    axios
+      .get(`${process.env.REACT_APP_BACKEND_URL}/place/${placeId}`)
+      .then(response => {
+        console.log("getPlaceByPlaceId", response);
+        setLoadedPlace(response.data.placeById);
+        setFormData(
+          {
+            title: { value: response.data.placeById.title, isValid: true },
+            description: {
+              value: response.data.placeById.description,
+              isValid: true
+            },
+            address: { value: response.data.placeById.address, isValid: true }
+          },
+          true
+        );
+      })
+      .catch(err => {
+        console.log(err, err.response);
+        setError(err.response.data.message);
+      });
+  }, []);
 
   const placeUpdateSubmitHandler = e => {
     e.preventDefault();
-    console.log(formState.inputs);
+    axios
+      .patch(
+        `${process.env.REACT_APP_BACKEND_URL}/place/${placeId}`,
+        {
+          title: formState.inputs.title.value,
+          description: formState.inputs.description.value,
+          address: formState.inputs.address.value
+        },
+        {
+          headers: {
+            Authorization: "Bearer " + auth.token
+          }
+        }
+      )
+      .then(response => {
+        console.log("updatedPlace", response);
+        history.push(`/${auth.userId}/places`);
+      })
+      .catch(err => {
+        console.log(err, err.response);
+        setError(err.response.data.message);
+      });
   };
 
-  if (!identifiedPlaces) {
+  const errorHandler = () => {
+    setError(null);
+  };
+
+  if (!loadedPlace && !error) {
     return (
       <div className="center">
         <h2>Could not find places.</h2>
       </div>
     );
   }
-  if (!formState.inputs.title.value) {
-    return (
-      <div className="center">
-        <h2>Loading...</h2>
-      </div>
-    );
-  }
+
   return (
-    <form className="place-form" onSubmit={placeUpdateSubmitHandler}>
-      <Input
-        elements="input"
-        id="title"
-        type="text"
-        label="Title"
-        validators={[VALIDATOR_REQUIRE()]}
-        errorText="Please enter valid title"
-        onInput={inputHandler}
-        initialValue={formState.inputs.title.value} //from input component state
-        initialIsValid={formState.inputs.title.isValid}
-      />
-      <Input
-        elements="textarea"
-        id="description"
-        label="Description"
-        validators={[VALIDATOR_MINLENGTH(5)]}
-        errorText="Description must be @ least 5 char long."
-        onInput={inputHandler}
-        initialValue={formState.inputs.description.value}
-        initialIsValid={formState.inputs.description.isValid}
-      />
-      <Button type="submit" disabled={!formState.isValid}>
-        UPDATE PLACE
-      </Button>
-    </form>
+    <Fragment>
+      <ErrorModal error={error} onClear={errorHandler} />
+      {loadedPlace && (
+        <form className="place-form" onSubmit={placeUpdateSubmitHandler}>
+          <Input
+            elements="input"
+            id="title"
+            type="text"
+            label="Title"
+            validators={[VALIDATOR_REQUIRE()]}
+            errorText="Please enter valid title"
+            onInput={inputHandler}
+            initialValue={loadedPlace.title} //from input component state
+            initialIsValid={true}
+          />
+          <Input
+            elements="input"
+            id="address"
+            type="text"
+            label="Address"
+            validators={[VALIDATOR_REQUIRE()]}
+            errorText="Please enter valid address"
+            onInput={inputHandler}
+            initialValue={loadedPlace.address} //from input component state
+            initialIsValid={true}
+          />
+          <Input
+            elements="textarea"
+            id="description"
+            label="Description"
+            validators={[VALIDATOR_MINLENGTH(5)]}
+            errorText="Description must be @ least 5 char long."
+            onInput={inputHandler}
+            initialValue={loadedPlace.description}
+            initialIsValid={true}
+          />
+          <Button type="submit" disabled={!formState.isValid}>
+            UPDATE PLACE
+          </Button>
+        </form>
+      )}
+    </Fragment>
   );
 };
 

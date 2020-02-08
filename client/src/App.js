@@ -1,29 +1,25 @@
-import React, { useState, useCallback } from "react";
+import React,{Suspense} from "react";
 import { BrowserRouter, Switch, Route, Redirect } from "react-router-dom";
 //Components
 import User from "./user/pages/User";
-import NewPlace from "./places/pages/NewPlace";
+//import NewPlace from "./places/pages/NewPlace";
 import MainNavigation from "./shared/components/Navigation/MainNavigation";
-import UserPlace from "./places/pages/UserPlace";
-import UpdatePlace from "./places/pages/UpdatePlace";
+//import UserPlace from "./places/pages/UserPlace";
+//import UpdatePlace from "./places/pages/UpdatePlace";
 import Auth from "./user/pages/Auth";
 import Signup from "./user/pages/Signup";
 import { AuthContext } from "./shared/components/context/auth-Context";
+import { useAuth } from "./shared/components/hooks/auth-hook";
+
+const NewPlace = React.lazy(()=> import('./places/pages/NewPlace'));
+const UserPlace = React.lazy(()=> import('./places/pages/UserPlace'));
+const UpdatePlace = React.lazy(()=> import('./places/pages/UpdatePlace'));
 
 const App = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  const login = useCallback(() => {
-    setIsLoggedIn(true);
-  }, []);
-
-  const logout = useCallback(() => {
-    setIsLoggedIn(false);
-  }, []);
+  const { token, userId, login, logout } = useAuth();
 
   let routes;
-
-  if (isLoggedIn) {
+  if (token) {
     routes = (
       <Switch>
         <Route path="/places/new" component={NewPlace} />
@@ -46,11 +42,21 @@ const App = () => {
 
   return (
     <AuthContext.Provider
-      value={{ isLoggedIn: isLoggedIn, login: login, logout: logout }}
+      value={{
+        isLoggedIn: !!token,
+        token: token,
+        login: login,
+        logout: logout,
+        userId: userId
+      }}
     >
       <BrowserRouter>
         <MainNavigation />
-        <main>{routes}</main>
+        <main>
+          <Suspense fallback={<p>Loading...</p>}>
+          {routes}
+          </Suspense>
+        </main>
       </BrowserRouter>
     </AuthContext.Provider>
   );

@@ -1,0 +1,7 @@
+{
+  "env": {
+    "DB_USER": "Jarus",
+    "DB_PASSWORD": "Jarus1",
+    "JWT_KEY": "pulsar220f."
+  }
+}

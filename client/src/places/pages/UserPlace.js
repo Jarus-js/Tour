@@ -1,28 +1,49 @@
-import React from "react";
-import { useParams } from "react-router-dom";
+import React, { Fragment, useState, useEffect, useContext } from "react";
+import { useParams, useHistory } from "react-router-dom";
+import axios from "axios";
 import PlaceList from "../components/PlaceList";
-
-const DUMMY_PLACES = [
-  {
-    id: "p1",
-    title: "Empire State Building",
-    description: "One of the most famous sky scrappers in the world",
-    imageUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Empire_State_Building_%28aerial_view%29.jpg/800px-Empire_State_Building_%28aerial_view%29.jpg",
-    address: "20 W 34th St,New York,NY 10001",
-    location: {
-      lat: 40.7884405,
-      lng: -73.9878584
-    },
-    creator: "u1"
-  }
-];
+import { AuthContext } from "../../shared/components/context/auth-Context";
+import ErrorModal from "../../shared/components/UIElements/ErrorModal";
 
 const UserPlace = () => {
-  const userId = useParams().userId; //route
-  const loadedPlace = DUMMY_PLACES.filter(place => place.creator === userId); //returns new array with all elements.
-  //console.log("amazing", loadedPlace);
-  return <PlaceList items={loadedPlace} />;
+  const auth = useContext(AuthContext);
+  const history = useHistory();
+  const [error, setError] = useState();
+  const [places, setPlaces] = useState();
+  //const userId = useParams().userId; //route
+
+  useEffect(() => {
+    axios
+      //.get(`http://localhost:5000/api/place/user/${auth.userId}`)
+      .get(process.env.REACT_APP_BACKEND_URL + "/place/all")
+      .then(response => {
+        console.log("allPlaces", response);
+        setPlaces(response.data.places);
+      })
+      .catch(err => {
+        console.log(err, err.response);
+        setError(err.response.data.message);
+      });
+  }, []);
+
+  const errorHandler = () => {
+    setError(null);
+  };
+
+  const placeDeletedHandler = deletedPlaceId => {
+    setPlaces(prevPlaces =>
+      prevPlaces.filter(place => place.id !== deletedPlaceId)
+    );
+  };
+
+  return (
+    <Fragment>
+      <ErrorModal error={error} onClear={errorHandler} />
+      {places && (
+        <PlaceList items={places} onDeletePlace={placeDeletedHandler} />
+      )}
+    </Fragment>
+  );
 };
 
 export default UserPlace;

@@ -7,7 +7,7 @@ const userSchema = new Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true, minlength: 5 },
-  imageUrl: { type: String },
+  image: { type: String },
   places: [{ type: Schema.Types.ObjectId, required: true, ref: "Place" }]
   //one user can have multiple places so []
 });

@@ -4,9 +4,7 @@ import "./Input.css";
 
 //RSA => reducer is just function that updates states based on action it receives & returns new state
 const inputReducer = (state, action) => {
-  switch (
-    action.type //actual state kasto hunxa vanera dekhauxam
-  ) {
+  switch (action.type) {
     case "ONCHANGE":
       return {
         ...state,
